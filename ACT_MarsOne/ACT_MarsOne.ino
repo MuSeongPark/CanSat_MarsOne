@@ -1,3 +1,5 @@
+
+#include <Servo.h>
 #include <TinyGPSPlus.h>
 #include <Wire.h>
 #include <SPI.h>
@@ -35,7 +37,8 @@ int16_t ax, ay, az;
 float aofx, aofy, aofz;
 
 String dio, acc, lati, longi, grat, cond;
-
+Servo servo1;
+Servo servo2;
 
 void setup() {
 
@@ -45,7 +48,14 @@ void setup() {
   longi = "0";
   
   Wire.begin();
-  Serial.begin(9600);
+  //Serial.begin(9600);
+
+  //Servo init
+  servo1.attach(6);
+  servo2.attach(7);
+  
+  servo1.write(100); //closed
+  servo2.write(100);
   
   ss.begin(9600);
   Serial1.begin(9600); //For Xbee
@@ -101,24 +111,34 @@ void loop() {
   accelgyro.getAcceleration(&ax, &ay, &az);
   aofz = az/16384.0;
   acc = String(aofz);
-
-  if((bmp.readAltitude(al)>100) && (bmp.readAltitude(al)<200)){
-    if(aofz>1 && aofz<2){
+  //30, 80
+  if((bmp.readAltitude(al)>15) && (bmp.readAltitude(al)<30)){
+    //1, 2
+    if(aofz>1.5 && aofz<2){
+      //opened
+      servo1.write(0);
+      servo2.write(0);
       cond = "1";
       //Serial.println(cond);
     }
   }
-  
+  /*
+
+  if(bmp.readAltitude(al)<20){
+    //closed
+    servo1.write(100);
+    servo2.write(100);
+  }
+  */
   grat = String(bmp.readAltitude(al));
   
 
   // GPS data
   // This sketch displays information every time a new sentence is correctly encoded.
-  if (ss.available() > 0)
-  {
+  while (ss.available() > 0)
     if (gps.encode(ss.read()))
       displayInfo();
-  }
+
   
   //Serial.print(dio+",");
   //Serial.print(acc+",");
@@ -126,7 +146,7 @@ void loop() {
   //Serial.print(longi+",");
   //Serial.print(grat+",");
   //Serial.println(cond);
-  //delay(500);
+  //delay(400);
   
   //Using Serial 1 (Tx1, rx1)
   Serial1.print(dio+",");
@@ -136,7 +156,7 @@ void loop() {
   Serial1.print(grat+",");
   Serial1.println(cond);
 
-  delay(500);
+  delay(300);
 }
 
 void displayInfo()
