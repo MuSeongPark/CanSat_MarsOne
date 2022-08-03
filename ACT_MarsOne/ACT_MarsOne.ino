@@ -1,5 +1,7 @@
 
+
 #include <Servo.h>
+
 #include <TinyGPSPlus.h>
 #include <Wire.h>
 #include <SPI.h>
@@ -29,7 +31,7 @@ Adafruit_BMP280 bmp;
 MPU6050 accelgyro;
 TinyGPSPlus gps;
 
-SoftwareSerial ss(11, 10);
+//SoftwareSerial ss(11, 10);
 
 
 float al;  //기준기압
@@ -40,44 +42,46 @@ String dio, acc, lati, longi, grat, cond;
 Servo servo1;
 Servo servo2;
 
+
 void setup() {
+
+  //ss.begin(9600);
+
+
 
   al = 0.0;
   cond = "0";
   lati = "0";
   longi = "0";
-  
-  Wire.begin();
-  //Serial.begin(9600);
 
-  //Servo init
-  servo1.attach(6);
-  servo2.attach(7);
-  
-  servo1.write(100); //closed
-  servo2.write(100);
-  
-  ss.begin(9600);
+  Wire.begin();
+  Serial.begin(9600);
+
   Serial1.begin(9600); //For Xbee
+  Serial2.begin(9600); //For GPS
   
   //Serial.println("CCS TEST");
+
   if (!ccs.begin()) {
-    Serial.println("FAILED to START SENSOR! CCS PLZ CHECK");
-    while (1);
+    //Serial.println("FAILED to START SENSOR! CCS PLZ CHECK");
+    //while (1);
   }
-  while (!ccs.available());
+  
+  while(!ccs.available());
   delay(5000);
+  
   float temp = ccs.calculateTemperature();
   ccs.setTempOffset(temp-25.0);
 
   //Serial.println("BMP280 TEST");
+
+  
   if(!bmp.begin(0x76)){
-    Serial.print(F("FAILED to START SENSOR! BMP PLZ CHECK"));
-    while(1);
+    //Serial.print(F("FAILED to START SENSOR! BMP PLZ CHECK"));
+    //while(1);
   }
 
   // initialize device
-  //Serial.println("Initializing I2C devices...");
   accelgyro.initialize();
 
   // verify connection
@@ -87,6 +91,16 @@ void setup() {
 
   //gps conn
   //Serial.print(F("Testing TinyGPSPlus library v. ")); Serial.println(TinyGPSPlus::libraryVersion());
+
+  //servo1.attach(2);
+  //servo2.attach(3);
+
+  //servo init
+  servo1.attach(6);
+  servo2.attach(7);
+  
+  servo1.write(100); //closed
+  servo2.write(100);
 
 }
 
@@ -122,21 +136,21 @@ void loop() {
       //Serial.println(cond);
     }
   }
-  /*
+  
 
   if(bmp.readAltitude(al)<20){
     //closed
     servo1.write(100);
     servo2.write(100);
   }
-  */
+  
   grat = String(bmp.readAltitude(al));
   
 
   // GPS data
   // This sketch displays information every time a new sentence is correctly encoded.
-  while (ss.available() > 0)
-    if (gps.encode(ss.read()))
+  while (Serial2.available() > 0)
+    if (gps.encode(Serial2.read()))
       displayInfo();
 
   
