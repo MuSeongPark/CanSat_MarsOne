@@ -1,11 +1,7 @@
-
-
 #include <Servo.h>
-
 #include <TinyGPSPlus.h>
 #include <Wire.h>
 #include <SPI.h>
-#include <SoftwareSerial.h>
 
 #include <Adafruit_SSD1306.h>
 #include <splash.h>
@@ -24,76 +20,66 @@
 #include "MPU6050.h"
 
 #define OUTPUT_READABLE_ACCELGYRO
-#define OUTPUT_BINARY_ACCELGYRO
+//#define OUTPUT_BINARY_ACCELGYRO
 
 Adafruit_CCS811 ccs;
 Adafruit_BMP280 bmp;
 MPU6050 accelgyro;
 TinyGPSPlus gps;
 
-//SoftwareSerial ss(11, 10);
-
 
 float al;  //기준기압
-int16_t ax, ay, az;
+int16_t ax, ay, az;  //가속도
 float aofx, aofy, aofz;
 
-String dio, acc, lati, longi, grat, cond;
-Servo servo1;
-Servo servo2;
+String dio, acc, lati, longi, alti, cond;  //String sensor data for Xbee
+Servo servo1;  //motor1
+Servo servo2;  //motor2
 
 
 void setup() {
-
-  //ss.begin(9600);
-
-
-
+  
   al = 0.0;
   cond = "0";
-  lati = "0";
-  longi = "0";
-
+  lati = "n";
+  longi = "n";
+  
   Wire.begin();
   Serial.begin(9600);
-
+  
   Serial1.begin(9600); //For Xbee
   Serial2.begin(9600); //For GPS
   
   //Serial.println("CCS TEST");
-
   if (!ccs.begin()) {
     //Serial.println("FAILED to START SENSOR! CCS PLZ CHECK");
     //while (1);
   }
-  
-  while(!ccs.available());
+    
+  while (!ccs.available());
   delay(5000);
   
-  float temp = ccs.calculateTemperature();
+  float temp = ccs.calculateTemperature();  //ccs
   ccs.setTempOffset(temp-25.0);
 
   //Serial.println("BMP280 TEST");
-
-  
   if(!bmp.begin(0x76)){
-    //Serial.print(F("FAILED to START SENSOR! BMP PLZ CHECK"));
+   // Serial.print(F("FAILED to START SENSOR! BMP PLZ CHECK"));
     //while(1);
   }
 
-  // initialize device
+  // initialize device mpu6050
+  //Serial.println("Initializing I2C devices...");
   accelgyro.initialize();
+  accelgyro.setFullScaleAccelRange(MPU6050_ACCEL_FS_16);  //set scale
 
   // verify connection
   //Serial.println("Testing device connections...");
   //Serial.println(accelgyro.testConnection() ? "MPU6050 connection successful" : "MPU6050 connection failed");
-  //delay(1000);
 
   //gps conn
   //Serial.print(F("Testing TinyGPSPlus library v. ")); Serial.println(TinyGPSPlus::libraryVersion());
 
-  //servo1.attach(2);
-  //servo2.attach(3);
 
   //servo init
   servo1.attach(6);
@@ -105,85 +91,69 @@ void setup() {
 }
 
 void loop() {
-  //gps
   
-  //해면고도
+  //기준 고도
   if(al==0){
     al = (bmp.readPressure()/100);
   }
-  //dio dataw
+  //carbon diox data
   if (ccs.available()) {
-    if (!ccs.readData()) {  //이 부분을 수정 -> 통신으로 보내야함.
+    if (!ccs.readData()) {
       dio = String(ccs.geteCO2());
       
     }
   }
-  //delay(500);
   
-  //accel data , 고도
-
+  //accel&altitude data
   accelgyro.getAcceleration(&ax, &ay, &az);
-  aofz = az/16384.0;
+  aofz = az/2048.0;
   acc = String(aofz);
-  //30, 80
-  if((bmp.readAltitude(al)>15) && (bmp.readAltitude(al)<30)){
-    //1, 2
-    if(aofz>1.5 && aofz<2){
+
+  alti = String(bmp.readAltitude(al));
+
+  //Door open & close
+  if((bmp.readAltitude(al)>30) && (bmp.readAltitude(al)<60)){
+    if(aofz>1.0 && aofz<1.3){
       //opened
       servo1.write(0);
       servo2.write(0);
       cond = "1";
-      //Serial.println(cond);
     }
   }
   
-
-  if(bmp.readAltitude(al)<20){
+  if(bmp.readAltitude(al)<15){
     //closed
     servo1.write(100);
     servo2.write(100);
   }
   
-  grat = String(bmp.readAltitude(al));
   
-
   // GPS data
-  // This sketch displays information every time a new sentence is correctly encoded.
   while (Serial2.available() > 0)
     if (gps.encode(Serial2.read()))
       displayInfo();
-
   
-  //Serial.print(dio+",");
-  //Serial.print(acc+",");
-  //Serial.print(lati+",");
-  //Serial.print(longi+",");
-  //Serial.print(grat+",");
-  //Serial.println(cond);
-  //delay(400);
-  
-  //Using Serial 1 (Tx1, rx1)
+  //Using Serial 1 (Tx1, rx1) 
   Serial1.print(dio+",");
   Serial1.print(acc+",");
   Serial1.print(lati+",");
   Serial1.print(longi+",");
-  Serial1.print(grat+",");
+  Serial1.print(alti+",");
   Serial1.println(cond);
-
+  
   delay(300);
 }
 
-void displayInfo()
-{
-  //Serial.print(F("Location: ")); 
+void displayInfo()    //receive latitude &longitude
+{ 
   if (gps.location.isValid())
   {
     lati = String(gps.location.lat(), 6);
     longi = String(gps.location.lng(), 6);
   }
-  else
+  else  //unable to receive data
   {
-    lati = "0";
-    longi = "0";
+    lati = "n";
+    longi = "n";
   }
 }
